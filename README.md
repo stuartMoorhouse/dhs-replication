@@ -33,5 +33,6 @@ SQS Queue
 SNS Topic
 
 ## Stretch goals
-Using streaming in the Java function, rather than loading it into memory
-Application to add new Collection into the workflow
+- Using streaming in the Java function, rather than loading it into memory
+- Application to add new Collection into the workflow
+- Reastrict permissions for lambda functions (down from Admin)
