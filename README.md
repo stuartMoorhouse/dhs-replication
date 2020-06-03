@@ -36,3 +36,4 @@ SNS Topic
 - Using streaming in the Java function, rather than loading it into memory
 - Application to add new Collection into the workflow
 - Reastrict permissions for lambda functions (down from Admin)
+- refactor DynamdoDB Lambda functions to make them re-useable
