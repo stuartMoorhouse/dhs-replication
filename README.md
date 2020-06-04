@@ -33,8 +33,9 @@ SQS Queue
 SNS Topic
 
 ## Stretch goals
-- Using streaming in the Java function, rather than loading it into memory
+- Using streaming in the Node.JS Lambda function (using MarkLogic node API), rather than loading it into memory
 - Application to add new Collection into the workflow
 - Reastrict permissions for lambda functions (down from Admin)
 - When no URIs have changed add a message to a dead-letter queue rather than failing
 - refactor DynamdoDB Lambda functions to make them re-useable
+- Use Secrets Manager to store DHS credentials
