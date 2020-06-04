@@ -14,7 +14,7 @@ const sourcePort = process.env.sourcePort;
 const PUT = 'PUT';
 const GET = 'GET';
 const UTF8 = 'utf8';
-  
+
 
 exports.handler = async (event, context, callback) => {
   const targetAuthString = 'Basic ' + new Buffer(targetUsername + ':' + targetPassword).toString('base64');
@@ -32,7 +32,7 @@ exports.handler = async (event, context, callback) => {
     };
   };
 
-  const targetOptions = (docUri, body, collection) => {
+  const targetOptions = (docUri, collection) => {
     return {
       host: targetHost,
       port: targetPort,
@@ -47,11 +47,11 @@ exports.handler = async (event, context, callback) => {
   return new Promise((resolve, reject) => {
     console.log(`EVENT: ${JSON.stringify(event)}`);
     const docUri = event.Records[0].body;
-    console.log(`docUri: ${docUri}`)
+    console.log(`docUri: ${docUri}`);
     const req = https.get(sourceOptions(docUri), getResponse => {
       console.log('statusCode (GET): ' + getResponse.statusCode);
       getResponse.on('data', data => {
-        const putReq = https.request(targetOptions(docUri, data, 'test'), putResponse => {
+        const putReq = https.request(targetOptions(docUri, 'test'), putResponse => {
           console.log('statusCode (PUT): ' + putResponse.statusCode);
           resolve({
             uri: docUri,
