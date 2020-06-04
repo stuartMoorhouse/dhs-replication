@@ -44,38 +44,52 @@ exports.handler = async (event, context, callback) => {
     };
   };
 
+  const executePutRequest = (docUri, collection, content, getStatusCode, resolve) => {
+    let putStatusCode = 0;
+    const putReq = https.request(targetOptions(docUri, collection), putResponse => {
+      console.log(`statusCode (PUT ${docUri}): ${putResponse.statusCode}`);
+      putStatusCode = putResponse.statusCode;
+    });
+    putReq.write(content);
+    putReq.on('error', e => {
+      console.log(`FAILED PUT for ${docUri}: ${e.message}`);
+    });
+    putReq.on('data', putResponseData => {
+      console.log(`PUT response data: ${putResponseData}`);
+    });
+    putReq.end();
+    return {
+      uri: docUri,
+      getResponse: getStatusCode,
+      putResponse: putStatusCode,
+      completed: new Date().toISOString()
+    };
+  };
+
+
   return new Promise((resolve, reject) => {
     console.log(`EVENT: ${JSON.stringify(event)}`);
-    const docUri = event.Records[0].body;
-    console.log(`docUri: ${docUri}`);
-    const req = https.get(sourceOptions(docUri), getResponse => {
-      console.log('statusCode (GET): ' + getResponse.statusCode);
-      getResponse.on('data', data => {
-        const putReq = https.request(targetOptions(docUri, 'test'), putResponse => {
-          console.log('statusCode (PUT): ' + putResponse.statusCode);
-          resolve({
-            uri: docUri,
-            getResponse: getResponse.statusCode,
-            putResponse: putResponse.statusCode,
-            completed: new Date().toISOString()
-          });
+    const records = [].concat(event.Records);
+    const getRequests = records.map(record => {
+      const docUri = record.body;
+      console.log(`docUri: ${docUri}`);
+      let status = {};
+      const getReq = https.get(sourceOptions(docUri), getResponse => {
+        console.log(`statusCode (GET ${docUri}): ${getResponse.statusCode}`);
+        let contentStr = '';
+        getResponse.on('data', data => {
+          contentStr += data;
         });
-        putReq.on('error', e => {
-          reject(e);
+        getResponse.on('end', () => {
+          status = executePutRequest(docUri, 'test', contentStr, getResponse.statusCode);
         });
-        putReq.on('data', putResponseData => {
-          console.log(`PUT response data: ${putResponseData}`)
-        });
-        putReq.write(data);
-        putReq.end();
       });
-    });
 
-    req.on('error', e => {
-      reject(e.message);
+      getReq.on('error', e => {
+        reject(e.message);
+      });
+      getReq.end();
     });
-
-    req.end();
   });
 };
 
