@@ -1,0 +1,63 @@
+{
+  "Comment": "Hackathon day 2 - DHS Replication - Message Producer",
+  "StartAt": "Get value from DynamoDB",
+  "States": {
+    "Get value from DynamoDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-north-1:432266607967:function:getValueFromDynamoDB",
+      "TimeoutSeconds": 300,
+      "HeartbeatSeconds": 60,
+      "Next": "Get URIs from source DHS"
+    },
+    "Get URIs from source DHS": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-north-1:432266607967:function:getURIsFromSourceDhs",
+      "TimeoutSeconds": 300,
+      "HeartbeatSeconds": 60,
+      "Next": "ProcessURIsAndSaveNewTimestamp"
+    },
+    "ProcessURIsAndSaveNewTimestamp": {
+      "Type": "Parallel",
+      "End": true,
+      "Branches": [
+        {
+          "StartAt": "Process URIs",
+          "States": {
+            "Process URIs": {
+              "Type": "Map",
+              "ItemsPath": "$.uris",
+              "MaxConcurrency": 0,
+              "Iterator": {
+                "StartAt": "Invoke Lambda function",
+                "States": {
+                  "Invoke Lambda function": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "Parameters": {
+                      "FunctionName": "arn:aws:lambda:eu-north-1:432266607967:function:publishUriToSNS",
+                      "Payload": {
+                        "Input.$": "$"
+                      }
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Put values to DynamoDB",
+          "States": {
+            "Put values to DynamoDB": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:eu-north-1:432266607967:function:putValueIntoDynamoDB",
+              "End": true
+            }
+          }
+        }
+      ]
+    }
+  }
+}
