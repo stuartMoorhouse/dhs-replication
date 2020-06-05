@@ -9,7 +9,7 @@
   "devDependencies": {},
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "aws lambda invoke --function-name syncFromUri --payload fileb://test/MultipleRecords.json test/results/testResult.json",
     "clean": "rm -rf function.zip",
     "prepublish": "zip -q -x test -r function.zip . ",
     "publish": "aws lambda update-function-code --function-name syncFromUri --zip-file fileb://function.zip"
