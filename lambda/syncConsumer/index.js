@@ -46,46 +46,56 @@ exports.handler = async (event, context, callback) => {
 
   const executePutRequest = async (docUri, collection, content, getStatusCode) => {
     let putStatusCode = 0;
-    const putReq = https.request(targetOptions(docUri, collection), putResponse => {
-      console.log(`statusCode (PUT ${docUri}): ${putResponse.statusCode}`);
-      putStatusCode = putResponse.statusCode;
+    return new Promise((resolve, reject) => {
+      const putReq = https.request(targetOptions(docUri, collection), putResponse => {
+        console.log(`statusCode (PUT ${docUri}): ${putResponse.statusCode}`);
+        putStatusCode = putResponse.statusCode;
+        putResponse.on('end', () => {
+          const responseObj = {
+            uri: docUri,
+            getResponse: getStatusCode,
+            putResponse: putResponse.putStatusCode,
+            completed: new Date().toISOString()
+          };
+          console.log(`PUT response: ${responseObj}`);
+          return resolve(responseObj);
+        });
+      });
+      putReq.on('error', e => {
+        console.log(`FAILED PUT for ${docUri}: ${e.message}`);
+        return reject(e);
+      });
+      putReq.write(content);
+      putReq.end();
     });
-    putReq.write(content);
-    putReq.on('error', e => {
-      console.log(`FAILED PUT for ${docUri}: ${e.message}`);
-    });
-    putReq.on('data', putResponseData => {
-      console.log(`PUT response data: ${putResponseData}`);
-    });
-    putReq.end();
-    return {
-      uri: docUri,
-      getResponse: getStatusCode,
-      putResponse: putStatusCode,
-      completed: new Date().toISOString()
-    };
   };
 
-  const executeGetRequest = async (docUri, collection) => {
-    let status = { uri: docUri };
-    const getReq = https.get(sourceOptions(docUri), getResponse => {
-      console.log(`statusCode (GET ${docUri}): ${getResponse.statusCode}`);
-      let contentStr = '';
-      getResponse.on('data', data => {
-        contentStr += data;
+  const executeGetRequest = async (docUri) => {
+    let contentStr = '';
+    let statusCode = 0;
+
+    return new Promise((resolve, reject) => {
+      const getReq = https.get(sourceOptions(docUri), getResponse => {
+        console.log(`statusCode (GET ${docUri}): ${getResponse.statusCode}`);
+        statusCode = getResponse.statusCode;
+        getResponse.on('data', data => {
+          contentStr += data;
+        });
+        getResponse.on('end', () => {
+          const responseObj = {
+            statusCode: statusCode,
+            content: contentStr,
+            uri: docUri
+          };
+          return resolve(responseObj);
+        });
       });
-      getResponse.on('end', () => {
-        executePutRequest(docUri, collection, contentStr, getResponse.statusCode)
-          .then(putExecutionResult => {
-            status = putExecutionResult
-          });
+      getReq.on('error', e => {
+        console.log(`FAILED GET for ${docUri}: ${e.message}`);
+        return reject(e);
       });
+      getReq.end();
     });
-    getReq.on('error', e => {
-      console.log(`FAILED GET for ${docUri}: ${e.message}`);
-    });
-    return (new Promise(() => { return getReq.end() }))
-      .then(() => { return status });
   };
 
   return new Promise((resolve, reject) => {
@@ -94,9 +104,17 @@ exports.handler = async (event, context, callback) => {
     const getRequests = records.map(record => {
       const docUri = record.body;
       console.log(`docUri: ${docUri}`);
-      return executeGetRequest(docUri, 'test');
+      const getResponses = executeGetRequest(docUri, 'test');
+      return getResponses;
     });
-    Promise.all(getRequests).then(() => { return  })
+    const putRequests = Promise.all(getRequests).then(getResponses => {
+      const puts = getResponses.map(getResponse => {
+        return executePutRequest(getResponse.uri, 'test', getResponse.content, getResponse.statusCode);
+      });
+      return Promise.all(puts);
+    });
+
+    resolve(Promise.resolve(putRequests));
   });
 };
 
