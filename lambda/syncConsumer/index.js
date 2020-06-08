@@ -44,7 +44,7 @@ exports.handler = async (event, context, callback) => {
     };
   };
 
-  const executePutRequest = (docUri, collection, content, getStatusCode, resolve) => {
+  const executePutRequest = async (docUri, collection, content, getStatusCode) => {
     let putStatusCode = 0;
     const putReq = https.request(targetOptions(docUri, collection), putResponse => {
       console.log(`statusCode (PUT ${docUri}): ${putResponse.statusCode}`);
@@ -66,6 +66,27 @@ exports.handler = async (event, context, callback) => {
     };
   };
 
+  const executeGetRequest = async (docUri, collection) => {
+    let status = { uri: docUri };
+    const getReq = https.get(sourceOptions(docUri), getResponse => {
+      console.log(`statusCode (GET ${docUri}): ${getResponse.statusCode}`);
+      let contentStr = '';
+      getResponse.on('data', data => {
+        contentStr += data;
+      });
+      getResponse.on('end', () => {
+        executePutRequest(docUri, collection, contentStr, getResponse.statusCode)
+          .then(putExecutionResult => {
+            status = putExecutionResult
+          });
+      });
+    });
+    getReq.on('error', e => {
+      console.log(`FAILED GET for ${docUri}: ${e.message}`);
+    });
+    return (new Promise(() => { return getReq.end() }))
+      .then(() => { return status });
+  };
 
   return new Promise((resolve, reject) => {
     console.log(`EVENT: ${JSON.stringify(event)}`);
@@ -73,23 +94,9 @@ exports.handler = async (event, context, callback) => {
     const getRequests = records.map(record => {
       const docUri = record.body;
       console.log(`docUri: ${docUri}`);
-      let status = {};
-      const getReq = https.get(sourceOptions(docUri), getResponse => {
-        console.log(`statusCode (GET ${docUri}): ${getResponse.statusCode}`);
-        let contentStr = '';
-        getResponse.on('data', data => {
-          contentStr += data;
-        });
-        getResponse.on('end', () => {
-          status = executePutRequest(docUri, 'test', contentStr, getResponse.statusCode);
-        });
-      });
-
-      getReq.on('error', e => {
-        reject(e.message);
-      });
-      getReq.end();
+      return executeGetRequest(docUri, 'test');
     });
+    Promise.all(getRequests).then(() => { return  })
   });
 };
 
