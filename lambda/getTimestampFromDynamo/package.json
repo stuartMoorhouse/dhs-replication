@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "aws lambda invoke --function-name getTimestampFromDynamo --payload fileb://test/basic.json test/results/testResult.json",
-    "prepublish": "zip function.zip index.js",
-    "publish": "aws lambda update-function-code --function-name getTimestampFromDynamo --zip-file fileb://function.zip"
+    "predeploy": "zip function.zip index.js",
+    "deploy": "aws lambda update-function-code --function-name getTimestampFromDynamo --zip-file fileb://function.zip"
   },
   "author": "MarkLogic EMEA",
   "license": "ISC",
