@@ -1,0 +1,18 @@
+{
+  "name": "get-timestamp-from-dynamo",
+  "version": "0.0.1",
+  "description": "Gets a timestamp value from DynamoDB",
+  "main": "index.js",
+  "scripts": {
+    "test": "aws lambda invoke --function-name getTimestampFromDynamo --payload fileb://test/basic.json test/results/testResult.json",
+    "prepublish": "zip function.zip index.js",
+    "publish": "aws lambda update-function-code --function-name getTimestampFromDynamo --zip-file fileb://function.zip"
+  },
+  "author": "MarkLogic EMEA",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "aws-sdk": "^2.690.0",
+    "aws-xray-sdk": "^3.0.1"
+  }
+}
