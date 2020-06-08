@@ -1,0 +1,17 @@
+{
+  "name": "puttimestamptodynamo",
+  "version": "0.0.1",
+  "description": "put a timestamp to dynamo, using node",
+  "main": "index.js",
+  "scripts": {
+    "test": "aws lambda invoke --function-name putTimestampToDynamo --payload fileb://test/basic.json test/results/testResult.json",
+    "predeploy": "zip function.zip index.js",
+    "deploy": "aws lambda update-function-code --function-name putTimestampToDynamo --zip-file fileb://function.zip"
+  },
+  "author": "MarkLogic EMEA",
+  "license": "ISC",
+  "devDependencies": {
+    "aws-sdk": "^2.691.0",
+    "aws-xray-sdk": "^3.0.1"
+  }
+}
