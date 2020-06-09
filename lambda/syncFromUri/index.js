@@ -61,7 +61,7 @@ exports.handler = async (event, context, callback) => {
         });
   };
 
-  const syncUri = async (docUri) => {
+  const syncUri = async (docUri, timestamp) => {
     return getDocFromSource(docUri)
       .then(docs => {
         return docs.map(doc => {
@@ -72,7 +72,8 @@ exports.handler = async (event, context, callback) => {
               console.log(`Put ${docUri} to ${targetHost}`);
               return {
                 uri: docUri,
-                completed: new Date().toISOString()
+                completed: new Date().toISOString(),
+                timestamp: timestamp
               }
             });
         });
@@ -86,11 +87,16 @@ exports.handler = async (event, context, callback) => {
     console.log(`EVENT: ${JSON.stringify(event)}`);
     const records = [].concat(event.Records);
     const syncTasks = records.map(record => {
-      const docUri = record.body;
-      return syncUri(docUri);
+      const docUri = record.body.uri;
+      const timestamp = record.body.dateTime;
+      return syncUri(docUri, timestamp);
     });
     return Promise.all(syncTasks)
-      .then(taskReceipts => resolve(taskReceipts));
+      .then(taskReceipts => resolve(taskReceipts))
+      .catch(err => {
+        console.error(`Failed to sync ${docUri} with timestamp ${timestamp}: ${err}`);
+        return reject(err);
+      });
   });
 };
 
