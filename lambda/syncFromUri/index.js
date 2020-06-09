@@ -53,8 +53,12 @@ exports.handler = async (event, context, callback) => {
     return sourceClient.documents.read(docUri)
       .result(
         documents => {
-          console.log(`received ${documents.length} doc from ${docUri}`)
-          return documents;
+          if (documents.length) {
+            console.log(`received ${documents.length} doc for ${docUri}`)
+            return documents;
+          } else {
+            throw `No doc received at ${docUri} on ${sourceHost}:${sourcePort}`
+          }
         },
         err => {
           console.error(`Error getting ${docUri}: ${JSON.stringify(error)}`);
@@ -94,7 +98,7 @@ exports.handler = async (event, context, callback) => {
     return Promise.all(syncTasks)
       .then(taskReceipts => resolve(taskReceipts))
       .catch(err => {
-        console.error(`Failed to sync ${docUri} with timestamp ${timestamp}: ${err}`);
+        console.error(`Failed to sync: ${err}`);
         return reject(err);
       });
   });
