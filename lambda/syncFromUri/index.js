@@ -91,8 +91,9 @@ exports.handler = async (event, context, callback) => {
     console.log(`EVENT: ${JSON.stringify(event)}`);
     const records = [].concat(event.Records);
     const syncTasks = records.map(record => {
-      const docUri = record.body.uri;
-      const timestamp = record.body.dateTime;
+      const body = JSON.parse(record.body);
+      const docUri = body.uri;
+      const timestamp = body.dateTime;
       return syncUri(docUri, timestamp);
     });
     return Promise.all(syncTasks)
