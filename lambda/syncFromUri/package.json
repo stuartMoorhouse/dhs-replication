@@ -1,12 +1,10 @@
 {
   "name": "dhs-replication-sync",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "lambdas for DHS doc replication between MarkLogic DHS instances",
   "dependencies": {
-    "aws-xray-sdk": "^3.0.1",
     "marklogic": "^2.4.2"
   },
-  "devDependencies": {},
   "main": "index.js",
   "scripts": {
     "test": "aws lambda invoke --function-name syncFromUri --payload fileb://test/MultipleRecords.json test/results/testResult.json",
