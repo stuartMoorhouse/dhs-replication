@@ -1,0 +1,523 @@
+## Parameters ##################################################################
+
+Parameters: 
+  LambdaBucket: 
+    Description: "The S3 bucket where you've uploaded the Lambda zip files."
+    Type: "String"
+
+  StateMachineBucket: 
+    Description: "The S3 bucket where you've loaded the Step Functions State Machine definition."
+    Type: "String"
+
+  StateMachineDefinition: 
+    Description: "The JSON document that describes the Step Functions State Machine."
+    Type: "String"
+
+## Restrict and parameterize Logs in policy definition
+##    make the Region a parameter
+
+################################################################################
+
+
+
+Resources:
+## IAM #########################################################################
+
+  ## Permission for a CloudWatch Event to invoke StepFunctions #####################
+  EventInvokeStepFunctionsRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "events.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+  # TODO: custom policy that only permits access to the DB this template creates
+
+  EventInvokeStepFunctionsPolicy: 
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties: 
+      Path: "/"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+           Effect: "Allow"
+           Action: "states:StartExecution"
+           # TODO: don't hardcode StepFunction State Machine
+           # Resource: "arn:aws:states:eu-north-1:432266607967:stateMachine:HackathonMVP_2_message_producer"
+           Resource: !Join [ ":", ['arn:aws:states:', !Ref "AWS::Region", !Ref "AWS::AccountId", "stateMachine", !Ref StateMachine ]]
+      Roles: 
+        - 
+          Ref: "EventInvokeStepFunctionsRole"
+
+      ################################################################################
+
+  ## Permission for the StepFunction State Machine to call Lambda functions ######
+  ##     and write logs to CloudWatch ############################################
+
+  StepFunctionCallLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "states.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: "StepFunctionCallLambdaRolePolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "lambda:InvokeFunction"
+                Resource: "*"
+                # TODO: restrict to resources created in this template
+
+      ################################################################################
+
+
+
+
+## Lambdas #################################################################################
+###########################################################################################
+
+## getValueFromDynamoDB() ####################################################################
+  GetValueFromDynamoDBLambda:
+    Type: "AWS::Lambda::Function"
+    DependsOn: "GetValueFromDynamoDBLambdaRole"
+    Properties:
+      Runtime: "python3.8"
+      Handler: "index.handler"
+      Role: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref "GetValueFromDynamoDBLambdaRole"]] ]]
+      Code:
+          S3Bucket: !Ref "LambdaBucket"
+          S3Key: "getValueFromDynamoDB.zip"
+
+  GetValueFromDynamoDBLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+
+
+  # TODO: custom policy that only permits access to the DB this template creates
+
+  GetValueFromDynamoDBLambdaRoleBasicExecutionPolicy: 
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties: 
+      Path: "/"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+           Effect: "Allow"
+           Action: "logs:CreateLogGroup"
+           Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogStream"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:PutLogEvents"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+      Roles: 
+        - 
+          Ref: "GetValueFromDynamoDBLambdaRole"
+
+######################################################################################
+
+
+
+## getUrisFromDhsAndSendMessages() ####################################################################
+  GetUrisFromDhsAndSendMessagesLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: "GetUrisFromDhsAndSendMessagesLambdaRole"
+    Properties:
+      Runtime: nodejs12.x
+      Handler: index.handler
+      Role: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref "GetUrisFromDhsAndSendMessagesLambdaRole"]] ]]
+      Code:
+        S3Bucket: !Ref "LambdaBucket"
+        S3Key: "getValueFromDynamoDB.zip"
+
+  GetUrisFromDhsAndSendMessagesLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+              # TODO: Set specific Resource: values
+
+  GetUrisFromDhsAndSendMessagesLambdaRoleBasicExecutionPolicy: 
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Path: /
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogGroup"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogStream"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:PutLogEvents"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+      Roles: 
+        - 
+          Ref: "GetUrisFromDhsAndSendMessagesLambdaRole"
+
+#   ###############################################################################
+
+
+# ## putValueIntoDynamoDB() ####################################################################
+
+  PutValueIntoDynamoDBLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.8
+      Handler: index.handler
+      Role: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref PutValueIntoDynamoDBLambdaRole]] ]]
+      Code:
+          S3Bucket: !Ref "LambdaBucket"
+          S3Key: "putValueIntoDynamoDB.zip"
+
+  PutValueIntoDynamoDBLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties: 
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        # TODO: custom policy that only permits access to the DB this template creates
+
+  PutValueIntoDynamoDBLambdaRoleBasicExecutionPolicy: 
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Path: /
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+           Effect: "Allow"
+           Action: "logs:CreateLogGroup"
+           Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogStream"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:PutLogEvents"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+      Roles: 
+        - 
+          Ref: "PutValueIntoDynamoDBLambdaRole"
+
+
+# ######################################################################################
+
+
+# ## syncFromUri() ####################################################################
+
+  SyncFromUriLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: "SyncFromUriLambdaRole"
+    Properties:
+      Runtime: nodejs12.x
+      Handler: index.handler
+      Role: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref SyncFromUriLambdaRole]] ]]
+      Code:
+          S3Bucket: !Ref "LambdaBucket"
+          S3Key: "syncFromUri.zip"
+
+  SyncFromUriLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+              # TODO: Set specific Resource: values
+
+
+  SyncFromUriLambdaRoleBasicExecutionPolicy: 
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties: 
+      Path: "/"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogGroup"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogStream"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+          - 
+            Effect: "Allow"
+            Action: "logs:PutLogEvents"
+            Resource: "arn:aws:logs:eu-north-1:432266607967:*"
+      Roles: 
+        - 
+          Ref: "SyncFromUriLambdaRole"
+
+######################################################################################
+
+## DynamoDB ##############################################################
+
+  DynamoDBdhsReplicationStateByCollection:
+    Type: "AWS::DynamoDB::Table"
+    Properties: 
+      AttributeDefinitions: 
+        - 
+          AttributeName: "collection"
+          AttributeType: "S"
+      KeySchema: 
+        - 
+          AttributeName: "collection"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TableName: "CF_dhs-timestamp-by-collection"
+
+  DynamoDBWriteCapacityScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    Properties:
+      MaxCapacity: 40000
+      MinCapacity: 5
+      ResourceId: !Join
+        - /
+        - - "table"
+          - !Ref DynamoDBdhsReplicationStateByCollection
+      RoleARN: !GetAtt DynamoDBWriteScalingRole.Arn
+      ScalableDimension: "dynamodb:table:WriteCapacityUnits"
+      ServiceNamespace: "dynamodb"
+
+  DynamoDBWriteScalingRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "application-autoscaling.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "dynamodb:DescribeTable"
+                  - "dynamodb:UpdateTable"
+                  - "cloudwatch:PutMetricAlarm"
+                  - "cloudwatch:DescribeAlarms"
+                  - "cloudwatch:GetMetricStatistics"
+                  - "cloudwatch:SetAlarmState"
+                  - "cloudwatch:DeleteAlarms"
+                Resource: "*"
+
+  DynamoDBWriteScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: "WriteAutoScalingPolicy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref DynamoDBWriteCapacityScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "DynamoDBWriteCapacityUtilization"
+
+  DynamoDBReadCapacityScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    Properties:
+      MaxCapacity: 40000
+      MinCapacity: 5
+      ResourceId: !Join
+        - /
+        - - "table"
+          - !Ref DynamoDBdhsReplicationStateByCollection
+      RoleARN: !GetAtt DynamoDBReadScalingRole.Arn
+      ScalableDimension: "dynamodb:table:ReadCapacityUnits"
+      ServiceNamespace: "dynamodb"
+
+  DynamoDBReadScalingRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "application-autoscaling.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "dynamodb:DescribeTable"
+                  - "dynamodb:UpdateTable"
+                  - "cloudwatch:PutMetricAlarm"
+                  - "cloudwatch:DescribeAlarms"
+                  - "cloudwatch:GetMetricStatistics"
+                  - "cloudwatch:SetAlarmState"
+                  - "cloudwatch:DeleteAlarms"
+  ## To do: restrict resources:
+                Resource: "*"
+                
+  DynamoDBReadScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: "ReadAutoScalingPolicy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref DynamoDBReadCapacityScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 50.0
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "DynamoDBReadCapacityUtilization"
+
+
+###############################################################################
+###############################################################################
+
+
+
+
+
+## SNS Topic ##################################################################
+  snsTopic:
+    Type: "AWS::SNS::Topic"
+    Properties: 
+      DisplayName: "cf-dhs-replication-new-uri-to-process"
+      KmsMasterKeyId: String
+      TopicName: "cf-dhs-replication-new-uri-to-process"
+
+
+
+###############################################################################
+###############################################################################
+
+
+
+## SQS Queue ##################################################################
+  sqsQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: "cf-test-collection"
+
+
+
+###############################################################################
+###############################################################################
+
+
+
+## StepFunctions ##############################################################
+# TO do: comlete step machine definition, add references to real functions
+  StateMachine:
+     Type: "AWS::StepFunctions::StateMachine"
+     Properties:
+      StateMachineName: "cf-dhs-replication"
+      DefinitionS3Location: 
+          Bucket: !Ref "StateMachineBucket"
+          Key: !Ref "StateMachineDefinition"
+          
+      RoleArn: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref StepFunctionCallLambdaRole]] ]]
+
+
+###############################################################################
+###############################################################################
+
+
+
+## CloudWatch #################################################################
+
+# Name: triggerProcessUris
+
+  CloudWatchEventMessageProducer:
+    Type: AWS::Events::Rule
+    DependsOn: "EventInvokeStepFunctionsRole"
+    Properties:
+      RoleArn: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref EventInvokeStepFunctionsRole]] ]]
+      ScheduleExpression: "rate(1 minute)"
+      State: "ENABLED"
+      Targets:
+        - Arn: !Ref "StateMachine"
+          Id: "DHS-replication-State-Machine"
+          RoleArn: !Join [ ":", ['arn:aws:iam:', !Ref "AWS::AccountId", !Join ["/", ['role', !Ref StepFunctionCallLambdaRole]] ]]
+
+
+###############################################################################
+###############################################################################
