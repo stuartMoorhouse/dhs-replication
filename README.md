@@ -39,3 +39,14 @@ SNS Topic
 - When no URIs have changed add a message to a dead-letter queue rather than failing
 - refactor DynamdoDB Lambda functions to make them re-useable
 - Use Secrets Manager to store DHS credentials
+
+
+
+## How to Run the DHS Replication workflow in AWS
+
+### Dependencies
+
+Two DHSes (*DHS 1* and *DHS 2*)
+
+1) Start the CloudWatch rule **triggerProcessUris**
+
