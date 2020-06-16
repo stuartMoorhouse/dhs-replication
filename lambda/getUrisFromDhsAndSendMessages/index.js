@@ -1,4 +1,9 @@
 var AWS = require("aws-sdk");
+const username = process.env.username;
+const password = process.env.password;
+const host = process.env.host;
+const port = process.env.port;
+
 
 exports.handler = async function (event, context) {
     // TODO implement
@@ -36,12 +41,12 @@ exports.handler = async function (event, context) {
         const myPath = '/dataSync/dataSync.sjs?lastTimestamp=' + event.body.timestamp + '&collection=' + event.body.collection;
         console.log('myPath', myPath)
         const options = {
-            host: '12dj0oy24.vkunp87wvpv.a.marklogicsvc.com',
+            host: host,
             path: myPath,
-            port: 8011,
+            port: port,
             method: 'GET',
             headers: {
-                'Authorization': 'Basic ' + new Buffer(process.env.username + ':' + process.env.password).toString('base64')
+                'Authorization': 'Basic ' + new Buffer(username + ':' + password).toString('base64')
             }
         };
 
@@ -58,9 +63,13 @@ exports.handler = async function (event, context) {
                 var bodyObj = JSON.parse(body)
                 var sns = new AWS.SNS();
                 const snsCalls = []
+
                 for (var uri of bodyObj.uris) {
+                    const message = {};
+                    message.uri = uri;
+                    message.dateTime = bodyObj.dateTime;
                     snsCalls.push(sns.publish({
-                        Message: uri,
+                        Message: JSON.stringify(message),
                         TopicArn: "arn:aws:sns:eu-north-1:432266607967:dhs-replication-new-uri-to-process"
                     }).promise())
                 }
