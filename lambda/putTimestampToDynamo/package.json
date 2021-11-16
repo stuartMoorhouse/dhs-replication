@@ -11,7 +11,7 @@
   "author": "MarkLogic EMEA",
   "license": "ISC",
   "devDependencies": {
-    "aws-sdk": "^2.691.0",
+    "aws-sdk": "^2.814.0",
     "aws-xray-sdk": "^3.0.1"
   }
 }
